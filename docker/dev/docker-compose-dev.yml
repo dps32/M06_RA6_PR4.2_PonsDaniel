@@ -1,0 +1,17 @@
+version: '3.8'
+services:
+  mysql-dev:
+    image: mysql:8.0
+    container_name: mp06-tema3-api-mysql
+    environment:
+      MYSQL_DATABASE: chatdb
+      MYSQL_USER: chatuser
+      MYSQL_PASSWORD: chatpass
+      MYSQL_ROOT_PASSWORD: root_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-dev-data:/var/lib/mysql
+    restart: always
+volumes:
+  mysql-dev-data:

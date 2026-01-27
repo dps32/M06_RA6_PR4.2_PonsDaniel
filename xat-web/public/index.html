@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Xat</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            <div class="header-main">
+                <h1>Xat</h1>
+                <button id="newConversationBtn" class="new-conversation-btn">
+                    Nova Conversa
+                </button>
+            </div>
+            <div class="conversation-info">
+                <span>Conversa ID: </span>
+                <span id="conversationIdDisplay">Nova conversa</span>
+            </div>
+        </div>
+        <div class="chat-messages" id="chatMessages">
+            <!-- Els missatges s'afegiran aquí -->
+        </div>
+        <div class="chat-input">
+            <div class="input-selectors">
+                <select id="modelSelector">
+                    <!-- Els models es carregaran dinàmicament amb JavaScript -->
+                </select>
+                <select id="streamSelector">
+                    <option value="false">Resposta Completa</option>
+                    <option value="true">Streaming</option>
+                </select>
+            </div>
+            <textarea 
+                id="promptInput" 
+                placeholder="Escriu el teu missatge..."
+                rows="3"
+            ></textarea>
+            <button id="sendButton">Enviar</button>
+        </div>
+    </div>
+    <script src="/js/main.js"></script>
+</body>
+</html>

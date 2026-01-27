@@ -1,0 +1,168 @@
+/* Reset i estils globals */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f0f2f5;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Contenidor principal */
+.chat-container {
+    width: 90%;
+    max-width: 800px;
+    height: 80vh;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    display: flex;
+    flex-direction: column;
+}
+
+/* Capçalera */
+.chat-header {
+    padding: 20px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.header-main {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.chat-header h1 {
+    color: #1a1a1a;
+    font-size: 24px;
+}
+
+.conversation-info {
+    font-size: 14px;
+    color: #666;
+    margin-top: 10px;
+}
+
+/* Àrea de missatges */
+.chat-messages {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+}
+
+.message-container {
+    margin-bottom: 20px;
+    max-width: 80%;
+}
+
+.message {
+    padding: 10px 15px;
+    border-radius: 10px;
+}
+
+.user-message {
+    background-color: #0084ff;
+    color: white;
+    margin-left: auto;
+}
+
+.response-message {
+    background-color: #e4e6eb;
+    color: #1a1a1a;
+}
+
+.message-info {
+    font-size: 12px;
+    color: #888;
+    margin-top: 5px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.message-info .status {
+    font-style: italic;
+}
+
+.message-info .status.error {
+    color: #ff4444;
+}
+
+.message-info .id {
+    margin-left: 10px;
+}
+
+/* Àrea d'entrada */
+.chat-input {
+    padding: 20px;
+    border-top: 1px solid #e0e0e0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.input-selectors {
+    display: flex;
+    gap: 10px;
+}
+
+#modelSelector,
+#streamSelector {
+    padding: 10px;
+    border: 1px solid #e0e0e0;
+    border-radius: 5px;
+    font-family: inherit;
+    min-width: 150px;
+}
+
+textarea {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid #e0e0e0;
+    border-radius: 5px;
+    resize: none;
+    font-family: inherit;
+    min-height: 100px;
+}
+
+/* Botons */
+button {
+    padding: 10px 20px;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+button:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
+/* Botó d'enviar */
+#sendButton {
+    background-color: #0084ff;
+    align-self: flex-end;
+}
+
+#sendButton:hover {
+    background-color: #0073e6;
+}
+
+/* Botó nova conversa */
+.new-conversation-btn {
+    background-color: #4CAF50;
+    padding: 8px 16px;
+    font-size: 14px;
+}
+
+.new-conversation-btn:hover {
+    background-color: #45a049;
+}
