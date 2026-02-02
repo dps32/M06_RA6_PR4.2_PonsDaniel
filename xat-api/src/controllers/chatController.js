@@ -1,9 +1,10 @@
 // Importacions necessàries
 const axios = require('axios');
 
-const { Conversation, Prompt } = require('../models');
+const { Conversation, Prompt, SentimentAnalysis } = require('../models');
 const { validateUUID } = require('../middleware/validators');
 const { logger } = require('../config/logger');
+const { error } = require('winston');
 
 // Constants de configuració
 const OLLAMA_API_URL = process.env.CHAT_API_OLLAMA_URL
@@ -385,9 +386,122 @@ const getConversation = async (req, res, next) => {
     }
 };
 
+/**
+ * Analitza el sentiment d'un text i retorna una puntuació de 0 a 10
+ * @route POST /api/chat/sentiment-analysis
+ */
+const analyzeSentiment = async (req, res, next) => {
+    try {
+        const { text } = req.body;
+
+        // Validació del text
+        if (!text || typeof text !== 'string' || text.trim() === '') {
+            logger.warn('Intent d\'analitzar sentiment amb text invàlid');
+            return res.status(400).json({
+                error: 'El camp text és obligatori i ha de contenir text valid'
+            });
+        }
+
+        logger.info('Iniciant anàlisi de sentiment', {
+            textLength: text.length
+        });
+
+        // Prompt per l'anàlisi de sentiment
+        const prompt = `Analitza el sentiment del seguent text i respon amb un JSON amb aquesta estructura exacta:
+        {
+            "score": X.X,
+            "sentiment": "positiu/negatiu/neutral"
+        }
+
+        "score" es un número del 0 al 10 (0 = molt negatiu, 5 = neutral, 10 = molt positiu).
+        El sentiment ha de ser: "positiu" (score > 6), "neutral" (score 4-6) o "negatiu" (score < 4).
+
+        Text a analitzar: "${text}"
+
+        Respon NOMÉS amb el JSON, sense cap text més.`;
+
+        // generar resposta
+        const response = await generateResponse(prompt, {
+            model: DEFAULT_OLLAMA_MODEL,
+            stream: false
+        });
+
+        logger.debug('Resposta rebuda d\'Ollama', {
+            responseLength: response.length
+        });
+
+        // Parsejar la resposta JSON
+        let analysisResult;
+        try {
+            // treure markdown si hi ha
+            let jsonText = response.trim();
+            if (jsonText.startsWith('```json')) {
+                jsonText = jsonText.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+            } else if (jsonText.startsWith('```')) {
+                jsonText = jsonText.replace(/```\s*/g, '');
+            }
+
+            analysisResult = JSON.parse(jsonText);
+
+            // Validar que tenim els camps necessaris
+            if (typeof analysisResult.score !== 'number' || !analysisResult.sentiment) {
+                throw new Error('Format de resposta invàlid');
+            }
+
+            // Assegurar que el score està entre 0 i 10
+            analysisResult.score = Math.max(0, Math.min(10, analysisResult.score));
+
+        } catch (parseError) {
+            logger.error('Error al parsejar resposta d\'Ollama', {
+                error: parseError.message,
+                response: response
+            });
+
+            // Fallback: retornar error si no podem parsejar
+            return res.status(500).json({
+                error: 'No s\'ha pogut analitzar el text',
+                details: 'El model no ha retornat un format vàlid'
+            });
+        }
+
+        // Guardar a la base de dades
+        const sentimentAnalysis = await SentimentAnalysis.create({
+            text: text,
+            score: analysisResult.score,
+            sentiment: analysisResult.sentiment,
+            model: DEFAULT_OLLAMA_MODEL,
+            resposta_completa: response
+        });
+
+        logger.info('Anàlisi de sentiment completada', {
+            id: sentimentAnalysis.id,
+            score: sentimentAnalysis.score,
+            sentiment: sentimentAnalysis.sentiment
+        });
+
+        // Retornar la resposta
+        res.status(201).json({
+            id: sentimentAnalysis.id,
+            text: sentimentAnalysis.text,
+            score: parseFloat(sentimentAnalysis.score),
+            sentiment: sentimentAnalysis.sentiment,
+            model: sentimentAnalysis.model,
+            createdAt: sentimentAnalysis.createdAt
+        });
+
+    } catch (error) {
+        logger.error('Error en l\'anàlisi de sentiment', {
+            error: error.message,
+            stack: error.stack
+        });
+        next(error);
+    }
+};
+
 // Exportació de les funcions públiques
 module.exports = {
     registerPrompt,
     getConversation,
-    listOllamaModels
+    listOllamaModels,
+    analyzeSentiment
 };

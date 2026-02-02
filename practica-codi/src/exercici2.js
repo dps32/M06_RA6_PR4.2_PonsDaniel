@@ -2,7 +2,7 @@
 const csv = require('csv-parser');
 const fs = require('fs');
 const path = require('path');
-require('dotenv').config();
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
 // Constants
 const DATA_SUBFOLDER = 'steamreviews';
@@ -34,7 +34,7 @@ async function analyzeSentiment(text) {
             },
             body: JSON.stringify({
                 model: process.env.CHAT_API_OLLAMA_MODEL_TEXT,
-                prompt: `Analyze the sentiment of this text and respond with only one word (positive/negative/neutral): "${text}"`,
+                prompt: `Analyze the sentiment of this game review and respond with ONLY ONE of these three words: positive, negative, or neutral. Do not include any additional text.\n\nText: "${text}"`,
                 stream: false
             })
         });
@@ -53,7 +53,13 @@ async function analyzeSentiment(text) {
             throw new Error('La resposta d\'Ollama no té el format esperat');
         }
 
-        return data.response.trim().toLowerCase();
+        // filtramos el resultado por si el modelo nos la intenta liar
+        const sentiment = data.response.trim().toLowerCase();
+        if (sentiment.includes('positive')) return 'positive';
+        if (sentiment.includes('negative')) return 'negative';
+        if (sentiment.includes('neutral')) return 'neutral';
+        
+        return sentiment;
     } catch (error) {
         console.error('Error detallat en la petició a Ollama:', error);
         console.error('Detalls adicionals:', {
@@ -94,26 +100,79 @@ async function main() {
         const games = await readCSV(gamesFilePath);
         const reviews = await readCSV(reviewsFilePath);
 
-        // Iterem pels jocs
-        console.log('\n=== Llista de Jocs ===');
-        for (const game of games) {
-            console.log(`Codi: ${game.appid}, Nom: ${game.name}`);
-        }
-
-        // Iterem per les primeres 10 reviews i analitzem el sentiment
-        console.log('\n=== Anàlisi de Sentiment de Reviews ===');
-        const reviewsToAnalyze = reviews.slice(0, 2);
+        // Agafem només els dos primers jocs
+        const firstTwoGames = games.slice(0, 2);
         
-        for (const review of reviewsToAnalyze) {
-            console.log(`\nProcessant review: ${review.id}`);
-            const sentiment = await analyzeSentiment(review.content);
-            console.log(`Review ID: ${review.id}`);
-            console.log(`Joc ID: ${review.app_id}`);
-            console.log(`Contingut: ${review.content.substring(0, 100)}...`);
-            console.log(`Sentiment (Ollama): ${sentiment}`);
-            console.log('------------------------');
+        // Creem l'estructura de resultats
+        const results = {
+            timestamp: new Date().toISOString(),
+            games: []
+        };
+
+        console.log('\n=== Anàlisi de Sentiment de Reviews ===');
+        
+        // Iterem pels dos primers jocs
+        for (const game of firstTwoGames) {
+            console.log(`\n=== Processant joc: ${game.name} (${game.appid}) ===`);
+            
+            // Filtrar les reviews per agafar nomès les del joc
+            const gameReviews = [];
+            for (let i = 0; i < reviews.length; i++) {
+                if (reviews[i].app_id === game.appid) {
+                    gameReviews.push(reviews[i]);
+                }
+            }
+            
+            // agafar nomès les primeres dues
+            const reviewsToAnalyze = gameReviews.slice(0, 2);
+            
+            const statistics = {
+                positive: 0,
+                negative: 0,
+                neutral: 0,
+                error: 0
+            };
+            
+            // per cada review analitzem el sentiment
+            for (const review of reviewsToAnalyze) {
+                console.log(`\nProcessant review: ${review.id}`);
+                console.log(`Contingut: ${review.content.substring(0, 100)}...`);
+                
+                const sentiment = await analyzeSentiment(review.content);
+                console.log(`Sentiment (Ollama): ${sentiment}`);
+                
+                // Actualitzem les estadístiques
+                if (sentiment === 'positive') {
+                    statistics.positive++;
+                } else if (sentiment === 'negative') {
+                    statistics.negative++;
+                } else if (sentiment === 'neutral') {
+                    statistics.neutral++;
+                } else {
+                    statistics.error++;
+                }
+                
+                console.log('------------------------');
+            }
+            
+            // Afegim el joc als resultats
+            results.games.push({
+                appid: game.appid,
+                name: game.name,
+                statistics: statistics
+            });
+            
+            console.log(`\nEstadístiques per ${game.name}:`);
+            console.log(JSON.stringify(statistics, null, 2));
         }
-        console.log(`\nNOMÉS AVALUEM LES DUES PRIMERES REVIEWS`);
+        
+        // Guardem els resultats al json
+        const outputPath = path.join(__dirname, dataPath, 'exercici2_resposta.json');
+        fs.writeFileSync(outputPath, JSON.stringify(results, null, 2), 'utf8');
+        
+        console.log(`\nResultats guardats a: ${outputPath}`);
+        console.log('\n=== Resum Final ===');
+        console.log(JSON.stringify(results, null, 2));
      } catch (error) {
         console.error('Error durant l\'execució:', error.message);
     }

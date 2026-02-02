@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { registerPrompt, getConversation, listOllamaModels } = require('../controllers/chatController');
+const { registerPrompt, getConversation, listOllamaModels, analyzeSentiment } = require('../controllers/chatController');
 
 /**
  * @swagger
@@ -75,5 +75,59 @@ router.get('/conversation/:id', getConversation);
  *         description: Error al recuperar models
  */
 router.get('/models', listOllamaModels);
+
+/**
+ * @swagger
+ * /api/chat/sentiment-analysis:
+ *   post:
+ *     summary: Analitza sentiment d'un text (retorna puntuacio 0-10)
+ *     tags: [Sentiment Analysis]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - text
+ *             properties:
+ *               text:
+ *                 type: string
+ *                 description: el text que vols analitzar
+ *                 example: Aquest producte és absolutament increïble! Estic molt satisfet amb la meva compra.
+ *     responses:
+ *       201:
+ *         description: Analisi completada
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 id:
+ *                   type: string
+ *                   format: uuid
+ *                 text:
+ *                   type: string
+ *                 score:
+ *                   type: number
+ *                   format: float
+ *                   minimum: 0
+ *                   maximum: 10
+ *                   description: puntuacio (0=negatiu, 10=positiu)
+ *                 sentiment:
+ *                   type: string
+ *                   enum: [positiu, negatiu, neutral]
+ *                 model:
+ *                   type: string
+ *                   description: model ollama
+ *                 createdAt:
+ *                   type: string
+ *                   format: date-time
+ *       400:
+ *         description: text invalid
+ *       500:
+ *         description: error
+ */
+router.post('/sentiment-analysis', analyzeSentiment);
 
 module.exports = router;

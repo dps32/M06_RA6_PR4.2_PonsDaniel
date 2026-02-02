@@ -1,7 +1,7 @@
 // Importacions
 const fs = require('fs').promises;
 const path = require('path');
-require('dotenv').config();
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
 // Constants des de variables d'entorn
 const IMAGES_SUBFOLDER = 'imatges/animals';
@@ -90,6 +90,9 @@ async function main() {
             throw new Error(`El directori d'imatges no existeix: ${imagesFolderPath}`);
         }
 
+
+        const analisis = [];
+
         const animalDirectories = await fs.readdir(imagesFolderPath);
 
         // Iterem per cada element dins del directori d'animals
@@ -137,21 +140,97 @@ async function main() {
                     console.log(`\nProcessant imatge: ${imagePath}`);
                     console.log(`Mida de la imatge en Base64: ${base64String.length} caràcters`);
                     
-                    // Definim el prompt per a Ollama
-                    const prompt = "Identifica quin tipus d'animal apareix a la imatge";
-                    console.log('Prompt:', prompt);
+                    // Definim el prompt per a Ollama amb sol·licitud d'anàlisi detallat
+                    const prompt = `Analitza l'animal que apareix a la imatge i proporciona la informació en format JSON amb la següent estructura exacta:
+                                {
+                                    "nom_comu": "nom comú de l'animal",
+                                    "nom_cientific": "nom científic si és conegut",
+                                    "taxonomia": {
+                                        "classe": "mamífer/au/rèptil/amfibi/peix/invertebrat",
+                                        "ordre": "ordre taxonòmic",
+                                        "familia": "família taxonòmica"
+                                    },
+                                    "habitat": {
+                                        "tipus": ["tipus d'hàbitats on viu"],
+                                        "regio_geografica": ["regions geogràfiques on habita"],
+                                        "clima": ["tipus de climes preferits"]
+                                    },
+                                    "dieta": {
+                                        "tipus": "carnívor/herbívor/omnívor/insectívor",
+                                        "aliments_principals": ["llista d'aliments que consumeix"]
+                                    },
+                                    "caracteristiques_fisiques": {
+                                        "mida": {
+                                            "altura_mitjana_cm": "altura o longitud mitjana en cm",
+                                            "pes_mitja_kg": "pes mitjà en kg"
+                                        },
+                                        "colors_predominants": ["colors principals de l'animal"],
+                                        "trets_distintius": ["característiques físiques distintives"]
+                                    },
+                                    "estat_conservacio": {
+                                        "classificacio_IUCN": "estat segons la IUCN (LC/NT/VU/EN/CR/EW/EX)",
+                                        "amenaces_principals": ["principals amenaces per a l'espècie"]
+                                    }
+                                }
+
+                                Respon NOMÉS amb el JSON, sense cap text addicional.`;
+                    
+                                
+                    console.log('Enviant petició d\'anàlisi...');
                     
                     // Fem la petició a Ollama amb la imatge i el prompt
                     const response = await queryOllama(base64String, prompt);
                     
                     // Processem la resposta d'Ollama
                     if (response) {
-                        // Si hem rebut resposta, la mostrem
-                        console.log(`\nResposta d'Ollama per ${imageFile}:`);
-                        console.log(response);
+                        try {
+                            let jsonText = response.trim();
+                            
+                            // eliminem el markdown si hi ha
+                            if (jsonText.startsWith('```json')) {
+                                jsonText = jsonText.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+                            } else if (jsonText.startsWith('```')) {
+                                jsonText = jsonText.replace(/```\s*/g, '');
+                            }
+
+                            // intentem parjejar-ho
+                            const analisi = JSON.parse(jsonText);
+                            
+                            // Afegim la informació a l'array d'analisis
+                            analisis.push({
+                                imatge: {
+                                    nom_fitxer: imageFile
+                                },
+                                analisi: analisi
+                            });
+                            
+                            console.log(`Anàlisis completat per ${imageFile}`);
+                        } catch (parseError) {
+                            console.error(`Error al parsejar JSON per ${imageFile}:`, parseError.message);
+                            console.error('Resposta rebuda:', response);
+                            
+                            // Guardem la resposta en text si no es pot parsejar
+                            analisis.push({
+                                imatge: {
+                                    nom_fitxer: imageFile
+                                },
+                                analisi: {
+                                    error: "No s'ha pogut parsejar la resposta",
+                                    resposta_original: response
+                                }
+                            });
+                        }
                     } else {
                         // Si no hem rebut resposta vàlida, loguegem l'error
                         console.error(`\nNo s'ha rebut resposta vàlida per ${imageFile}`);
+                        analisis.push({
+                            imatge: {
+                                nom_fitxer: imageFile
+                            },
+                            analisi: {
+                                error: "No s'ha rebut resposta del model"
+                            }
+                        });
                     }
                     // Separador per millorar la llegibilitat del output
                     console.log('------------------------');
@@ -160,6 +239,16 @@ async function main() {
             console.log(`\nATUREM L'EXECUCIÓ DESPRÉS D'ITERAR EL CONTINGUT DEL PRIMER DIRECTORI`);
             break; // ATUREM L'EXECUCIÓ DESPRÉS D'ITERAR EL CONTINGUT DEL PRIMER DIRECTORI
         }
+
+        // Guardem el resultat al fitxer JSON
+        const outputPath = path.join(__dirname, process.env.DATA_PATH, 'exercici3_resposta.json');
+        const outputData = {
+            analisis: analisis
+        };
+        
+        await fs.writeFile(outputPath, JSON.stringify(outputData, null, 4), 'utf8');
+        console.log(`\nResultats guardats a: ${outputPath}`);
+        console.log(`Total d'anàlisis realitzades: ${analisis.length}`);
 
     } catch (error) {
         console.error('Error durant l\'execució:', error.message);
